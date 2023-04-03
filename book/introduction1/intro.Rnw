@@ -1,0 +1,182 @@
+\documentclass{article}
+\usepackage[sc]{mathpazo}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{2}
+\usepackage{url}
+\usepackage[unicode=true,pdfusetitle,
+ bookmarks=true,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=2,
+ breaklinks=false,pdfborder={0 0 1},backref=false,colorlinks=false]
+ {hyperref}
+\hypersetup{
+ pdfstartview={XYZ null null 1}}
+\usepackage{breakurl}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{xcolor}
+\usepackage[mathscr]{euscript}
+
+\usepackage{lstbayes}
+\usepackage{bigints}
+
+\newcommand{\betadistribution}[1]{\ensuremath{\frac{1}{B(\alpha,\beta)} (#1)^{(\alpha - 1)}(1 - #1)^{\beta -1 }}}
+\newcommand{\binomialdistribution}{\ensuremath{ \binom{N}{y} \theta^{y}(1 - \theta)^{N-y}  }}
+%%\newcommand{\inversegammadistribution}[1]{\ensuremath{\frac{\beta^{\alpha}}{\Gamma{(\alpha)}} (#1)^{-(\alpha + 1)}\exp{\left(\frac{-\beta}{#1} \right)}  }}
+\newcommand{\inversegammadistribution}[1]{\ensuremath{\frac{\beta^{\alpha}}{\Gamma{(\alpha)}} \left(\frac{1}{#1}\right)^{\alpha + 1}\exp{\left(-\frac{\beta}{#1} \right)}  }}
+\newcommand{\normaldistributionlik}{\ensuremath{\left( \frac{1}{\sqrt{2\pi\sigma^2}}  \right)^{n} \exp{\left(- \frac{1}{2\sigma^2}\left[ n(\mu - \bar{x})^2 + s^2 \right]   \right) }        }}
+\newcommand{\normaldistribution}{\ensuremath{\frac{1}{\sqrt{2\pi\sigma^2}} \exp{\left(-\frac{1}{2\sigma^2}(x - \mu)^2  \right)}  } }
+\newcommand{\normalD}[3]{\ensuremath{\frac{1}{\sqrt{2\pi#1^2}} \exp{\left(-\frac{1}{2 #1^2}(#3 - #2)^2  \right)}  } }
+
+\begin{document}
+
+\title{Introduction to State Space Time Series Analysis}
+
+\author{Elias Ardila}
+
+\maketitle
+
+\section{Introduction}
+
+The standard regression model for $n$ observations of $y$ and $x$ is written as
+\begin{flalign*}
+y_{i} = a + bx_{i} + \epsilon_{i},\quad \epsilon_{i} \sim \mathcal{N}(0,\sigma_{\epsilon}^{2})
+\end{flalign*}
+
+<<>>=
+ukksi <- scan("ukksi.txt")
+logukksi <- log(ukksi)
+x <- 1:192
+mod1 <- lm(logukksi ~ x)
+summary(mod1)
+anova(mod1)
+@ 
+\newpage
+<<>>=
+aov(logukksi ~ x)
+@
+
+A scatter plot of variable $y$ on $x$ together with the best fitting line
+according to classical linear regression.
+
+<<plot1, fig.width=8, fig.height=7, fig.align='center',  out.width='.9\\linewidth'>>=
+plot(logukksi,pch=3,xaxt="n",xlab="",ylab="",yaxt="n",cex=.3)
+axis(1, at=seq(0,200,by=5),labels=rep("",length(seq(0,200,by=5))))
+axis(1,at=seq(0,200,by=20),labels=seq(0,200,by=20))
+axis(2,at=seq(7.0,7.9,by=0.1),labels=seq(7.0,7.9,by=0.1),las=1)
+lines(fitted(mod1) ~ x,lty=3)
+legend("topright",
+       legend=c("log UK drivers KSI against time (in months)","regression line"),
+       lty=c(NA,3),pch=c(3,NA))
+@
+\newpage
+The equation of the regression line is
+\begin{flalign*}
+\hat{y_i} &= \hat{a} + \hat{b}x_i = \Sexpr{ round(coef(mod1)[1],4) } + (\Sexpr{round(coef(mod1)[2],5)}x_i)\\
+\end{flalign*}
+
+with error variance $\sigma_{\epsilon}^{2} = \Sexpr{summary(mod1)$sigma^2}$.
+
+<<>>=
+n <- length(ukksi)
+n
+S <- t(logukksi - coef(mod1)[1] - coef(mod1)[2]*x)%*%(logukksi - 
+                                  coef(mod1)[1] - coef(mod1)[2]*x)
+s2hat <- as.numeric(S/(n-2))
+s2hat
+@
+The standardt F-test yields $F=\Sexpr{round(summary(mod1)$fstatistic[1],3)}$.
+
+\newpage
+
+\section{Predicted Values and Residuals}
+<<>>=
+ei <- residuals(mod1)
+@
+
+Log of the number of UK drivers KSI plotted as time series.
+<<plot2, fig.width=8, fig.height=7, fig.align='center',out.width='.9\\linewidth'>>=
+plot(logukksi,pch=3,xaxt="n",xlab="",ylab="",yaxt="n",type="l")
+axis(1,at=seq(0,200,by=20),labels=seq(0,200,by=20))
+axis(2,at=seq(7.0,7.9,by=0.1),labels=seq(7.0,7.9,by=0.1),las=1)
+legend("topright",
+       legend=c("log UK drivers KSI"),
+       lty=c(1))
+@
+
+\newpage
+
+Residuals of classical linear regression of the log of the number of
+UK drivers KSI on time.
+
+<<fig.width=8, fig.height=7, fig.align='center',out.width='.9\\linewidth'>>=
+plot(ei,pch=3,xaxt="n",xlab="",ylab="",yaxt="n",type="l",lty=3)
+axis(1,at=seq(0,200,by=20),labels=seq(0,200,by=20))
+axis(2,at=round(seq(-0.3,0.4,by=0.1),1),labels=round(seq(-0.3,0.4,by=0.1),1),las=1)
+legend("topleft",
+       legend=c("residuals"),
+       lty=3)
+abline(h=0)
+@
+
+<<>>=
+ll <- 2/sqrt(n)
+z <- sample(1:n)
+@
+
+\newpage
+<<plot3, fig.width=8, fig.height=7, out.width='.9\\linewidth'>>=
+plot(ei[z],pch=3,xaxt="n",xlab="",ylab="",yaxt="n",type="l",lty=3)
+axis(1,at=seq(0,200,by=20),labels=seq(0,200,by=20))
+axis(2,at=round(seq(-0.3,0.4,by=0.1),1),labels=round(seq(-0.3,0.4,by=0.1),1),las=1)
+legend("topleft",
+       legend=c("residuals"),
+       lty=3)
+abline(h=0)
+@
+
+\newpage
+<<plot4, fig.width=8, fig.height=7, out.width='.9\\linewidth'>>=
+acf(ei[z],lag.max=15)
+abline(h=c(-ll,ll),lty=3)
+@
+
+\newpage
+Correlogram of classical regression residuals.
+
+<<plot5, fig.width=8, fig.height=7, fig.align='center',out.width='.9\\linewidth'>>=
+acf(ei,lag.max=15,main="ACF-regression residuals")
+abline(h=c(-ll,ll),lty=3)
+@
+
+<<>>=
+yt <- logukksi
+as.numeric(t(yt)%*%yt)
+yt.hat <- fitted(mod1)
+
+as.numeric(t(yt.hat + ei)%*%(yt.hat + ei))
+ss.model <- as.numeric(t(yt.hat)%*%yt.hat)
+ss.model
+ss.res <- as.numeric(t(ei)%*%ei)
+ss.res
+ss.model + ss.res
+ss.total.unc <- as.numeric(t(yt)%*%yt)
+ss.total.unc
+
+b0 <- coef(mod1)[1]
+b1 <- coef(mod1)[2]
+
+## ss.model
+n*mean(yt)^2 + (b1^2)*as.numeric(t(x - mean(x))%*%(x - mean(x)))
+
+ss.total.unc - ss.model
+
+ss.res
+
+ss.regr <- (b1^2)*as.numeric(t(x - mean(x))%*%(x - mean(x)))
+ss.regr
+
+ss.regr + ss.res
+@
+    
+\end{document}

@@ -1,0 +1,123 @@
+---
+title:  "Introduction to State Space Time Series Analysis"
+output: html_document
+author: "Elias Ardila"
+---
+
+# Introduction
+
+The standard regression model for $n$ observations of $y$ and $x$ is written as
+$$
+y_{i} = a + bx_{i} + \epsilon_{i},\quad \epsilon_{i} \sim \mathcal{N}(0,\sigma_{\epsilon}^{2})
+$$
+
+```{r loaddata}
+ukksi <- scan("ukksi.txt")
+logukksi <- log(ukksi)
+x <- 1:192
+```
+
+```{r linearmodel}
+mod1 <- lm(logukksi ~ x)
+summary(mod1)
+anova(mod1)
+aov(logukksi ~ x)
+```
+
+A scatter plot of variable $y$ on $x$ together with the best fitting line
+according to classical linear regression.
+
+```{r plot1, fig.width=8, fig.height=7, fig.align='center',  out.width='.9\\linewidth'}
+plot(logukksi,pch=3,xaxt="n",xlab="",ylab="",yaxt="n",cex=.3)
+axis(1, at=seq(0,200,by=5),labels=rep("",length(seq(0,200,by=5))))
+axis(1,at=seq(0,200,by=20),labels=seq(0,200,by=20))
+axis(2,at=seq(7.0,7.9,by=0.1),labels=seq(7.0,7.9,by=0.1),las=1)
+lines(fitted(mod1) ~ x,lty=3)
+legend("topright",
+       legend=c("log UK drivers KSI against time (in months)","regression line"),
+       lty=c(NA,3),pch=c(3,NA))
+```
+
+The equation of the regression line is
+$$
+\hat{y_i} = \hat{a} + \hat{b}x_i = `r round(coef(mod1)[1],4) `  + (`r round(coef(mod1)[2],5) ` x_i )\\
+$$
+with error variance $\sigma_{\epsilon}^{2} = `r summary(mod1)$sigma^2 `$.
+
+```{r sigma}
+n <- length(ukksi)
+n
+S <- t(logukksi - coef(mod1)[1] - coef(mod1)[2]*x)%*%(logukksi - 
+                                  coef(mod1)[1] - coef(mod1)[2]*x)
+s2hat <- as.numeric(S/(n-2))
+s2hat
+```
+
+The standardt F-test yields $F=`r round(summary(mod1)$fstatistic[1],3) `$.
+
+
+# Predicted Values and Residuals
+```{r resid}
+ei <- residuals(mod1)
+```
+
+Log of the number of UK drivers KSI plotted as time series.
+
+```{r plot2, fig.width=8, fig.height=7, fig.align='center',out.width='.9\\linewidth'}
+plot(logukksi,pch=3,xaxt="n",xlab="",ylab="",yaxt="n",type="l")
+axis(1,at=seq(0,200,by=20),labels=seq(0,200,by=20))
+axis(2,at=seq(7.0,7.9,by=0.1),labels=seq(7.0,7.9,by=0.1),las=1)
+legend("topright",
+       legend=c("log UK drivers KSI"),
+       lty=c(1))
+```
+
+Residuals of classical linear regression of the log of the number of
+UK drivers KSI on time.
+
+```{r plot3, fig.width=8, fig.height=7, fig.align='center',out.width='.9\\linewidth'}
+plot(ei,pch=3,xaxt="n",xlab="",ylab="",yaxt="n",type="l",lty=3)
+axis(1,at=seq(0,200,by=20),labels=seq(0,200,by=20))
+axis(2,at=round(seq(-0.3,0.4,by=0.1),1),labels=round(seq(-0.3,0.4,by=0.1),1),las=1)
+legend("topleft",
+       legend=c("residuals"),
+       lty=3)
+abline(h=0)
+```
+
+Correlogram of classical regression residuals.
+
+```{r plot5, fig.width=8, fig.height=7, fig.align='center',out.width='.9\\linewidth'}
+acf(ei,lag.max=15,main="ACF-regression residuals")
+##abline(h=c(-ll,ll),lty=3)
+```
+
+```{r manual}
+yt <- logukksi
+as.numeric(t(yt)%*%yt)
+yt.hat <- fitted(mod1)
+
+as.numeric(t(yt.hat + ei)%*%(yt.hat + ei))
+ss.model <- as.numeric(t(yt.hat)%*%yt.hat)
+ss.model
+ss.res <- as.numeric(t(ei)%*%ei)
+ss.res
+ss.model + ss.res
+ss.total.unc <- as.numeric(t(yt)%*%yt)
+ss.total.unc
+
+b0 <- coef(mod1)[1]
+b1 <- coef(mod1)[2]
+
+## ss.model
+n*mean(yt)^2 + (b1^2)*as.numeric(t(x - mean(x))%*%(x - mean(x)))
+
+ss.total.unc - ss.model
+
+ss.res
+
+ss.regr <- (b1^2)*as.numeric(t(x - mean(x))%*%(x - mean(x)))
+ss.regr
+
+ss.regr + ss.res
+```
